@@ -538,11 +538,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /* ─── Data ─── */
+const GLB_BASE = 'https://github.com/bjz05/blade-throne/releases/download/v1.0.0/';
+
 const characters = [
   {
     name: "Iron Knight",
     role: "Armored Defender",
-    glb: "f234f6327ec2ffb363665b304289ac45.glb",
+    glb: GLB_BASE + "f234f6327ec2ffb363665b304289ac45.glb",
     thumb: "Benjamin_Zhou_a_full_body_knight_front_view_--chaos_65_--sref_03ad4f0d-c375-495c-bba4-e93ef333a217_2.png",
     stats: { armor: "HIGH", mobility: "LOW", health: "HIGH", power: "MED" },
     bb: { min: [-0.337, 0, -0.147], max: [0.336, 1.088, 0.198] }
@@ -550,7 +552,7 @@ const characters = [
   {
     name: "Wind Dancer",
     role: "Free-Spirit Blade",
-    glb: "1b3334743b8d7787228258de0357c9b0.glb",
+    glb: GLB_BASE + "1b3334743b8d7787228258de0357c9b0.glb",
     thumb: "Benjamin_Zhou_a_free_and_easy_swordsman_front_view_full_body__2c075ea2-c60f-4f90-98e9-3f63175f3d27_3.png",
     stats: { armor: "LOW", mobility: "HIGH", health: "MED", power: "MED" },
     bb: { min: [-0.313, 0, -0.328], max: [0.294, 1.177, 0.418] }
@@ -558,7 +560,7 @@ const characters = [
   {
     name: "Cyber Ronin",
     role: "Shadow Striker",
-    glb: "e7a067c01e2b943a30d4b6b07245f251.glb",
+    glb: GLB_BASE + "e7a067c01e2b943a30d4b6b07245f251.glb",
     thumb: "Benjamin_Zhou_cyberpunk_world_swordsman_full_body_head_to_fee_8b26e4ec-ee06-4ffe-80f3-22e546f0dc9e_3.png",
     stats: { armor: "MED", mobility: "HIGH", health: "MED", power: "HIGH" },
     bb: { min: [-0.346, 0, -0.159], max: [0.326, 1.175, 0.197] }
