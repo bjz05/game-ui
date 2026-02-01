@@ -1100,7 +1100,11 @@ function animate() {
   const dt  = (now - lastTime) / 1000;
   lastTime  = now;
 
-  if (celebrationActive && !celebrationPending) {
+  if (celebrationPending) {
+    // Panel is collapsing — hold the camera at the snapped front-view
+    // position until the panel is gone and waitForPanelCollapse fires
+    applyOrbit();
+  } else if (celebrationActive) {
     const elapsed = (now - celebrationStart) / 1000; // seconds
 
     // ── Camera flyby + cinematic lighting ──
