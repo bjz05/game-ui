@@ -997,12 +997,6 @@ function selectCharacter() {
   if (celebrationActive) return;
   celebrationActive  = true;
   celebrationPending = true;
-
-  // Snap orbit state but do NOT call applyOrbit — the canvas is still
-  // panel-width here; waiting until the panel is gone avoids a visible jump
-  orbitTheta = 0;
-  orbitPhi   = Math.PI / 2.2;
-
   autoRotate  = false;
   isDragging  = false;
 
@@ -1101,9 +1095,9 @@ function animate() {
   lastTime  = now;
 
   if (celebrationPending) {
-    // Panel is collapsing — hold the camera at the snapped front-view
-    // position until the panel is gone and waitForPanelCollapse fires
-    applyOrbit();
+    // Panel is collapsing — do nothing to the camera. It stays exactly
+    // where the user last saw it. waitForPanelCollapse will resize the
+    // renderer and reframe once the panel is fully gone.
   } else if (celebrationActive) {
     const elapsed = (now - celebrationStart) / 1000; // seconds
 
