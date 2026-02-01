@@ -1095,9 +1095,11 @@ function animate() {
   lastTime  = now;
 
   if (celebrationPending) {
-    // Panel is collapsing — do nothing to the camera. It stays exactly
-    // where the user last saw it. waitForPanelCollapse will resize the
-    // renderer and reframe once the panel is fully gone.
+    // Panel is collapsing — keep renderer synced to the growing canvas
+    // container so the model stays visually centered throughout
+    resizeRenderer();
+    autoFrame(current);
+    applyOrbit();
   } else if (celebrationActive) {
     const elapsed = (now - celebrationStart) / 1000; // seconds
 
