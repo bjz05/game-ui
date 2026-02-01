@@ -12,14 +12,6 @@
 | Wind Dancer | Free-Spirit Blade | High mobility |
 | Cyber Ronin | Shadow Striker | High mobility, high power |
 
-## How to Run Locally
-
-```bash
-cd ~/Desktop/Animations
-python3 -m http.server 8765
-```
-
-Open http://localhost:8765 in your browser. ES modules require an HTTP server — opening `index.html` directly won't work.
 
 ## Controls
 
