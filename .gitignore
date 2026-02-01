@@ -1,0 +1,6 @@
+*.fbx
+*.glb
+*.mp4
+tex_preview/
+.DS_Store
+.claude/
