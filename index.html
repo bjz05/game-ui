@@ -867,8 +867,12 @@ let celebrationStart   = 0;
 // Saved pre-celebration orbit state
 let savedTheta, savedPhi, savedRadius, savedTarget;
 
-// Phase B: runs once the left panel has fully collapsed (or re-expanded)
-function celebrationPhaseB() {
+// Wait for panel to fully collapse, then kick off the flyby
+function waitForPanelCollapse() {
+  if (panelLeft.clientWidth > 0) {
+    requestAnimationFrame(waitForPanelCollapse);
+    return;
+  }
   celebrationPending = false;
   resizeRenderer();
   autoFrame(current);
@@ -881,21 +885,17 @@ function celebrationPhaseB() {
   celebrationStart = performance.now();
 }
 
-function dismissResizeComplete() {
+// Wait for panel to fully re-expand after dismiss
+function waitForPanelExpand() {
+  if (panelLeft.clientWidth < 300) {
+    requestAnimationFrame(waitForPanelExpand);
+    return;
+  }
   resizeRenderer();
   autoFrame(current);
   applyOrbit();
   autoRotate = true;
 }
-
-panelLeft.addEventListener('transitionend', (e) => {
-  if (e.propertyName !== 'flex-basis') return;
-  if (celebrationPending) {
-    celebrationPhaseB();
-  } else if (!celebrationActive) {
-    dismissResizeComplete();
-  }
-});
 
 // Easing function
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -998,10 +998,10 @@ function selectCharacter() {
   celebrationActive  = true;
   celebrationPending = true;
 
-  // Snap to front view (camera math correct; aspect & radius updated in Phase B)
+  // Snap orbit state but do NOT call applyOrbit — the canvas is still
+  // panel-width here; waiting until the panel is gone avoids a visible jump
   orbitTheta = 0;
   orbitPhi   = Math.PI / 2.2;
-  applyOrbit();
 
   autoRotate  = false;
   isDragging  = false;
@@ -1010,14 +1010,13 @@ function selectCharacter() {
   flash.classList.add('show');
   setTimeout(() => flash.classList.remove('show'), 300);
 
-  // Hide UI — panelLeft transition triggers Phase B via transitionend
+  // Hide UI — waitForPanelCollapse polls clientWidth until 0, then starts flyby
   panelLeft.classList.add('hidden');
   viewerInfo.classList.add('hidden');
   hintRow.classList.add('hidden');
   dragHint.classList.add('hidden');
 
-  // Safety fallback: if transitionend never fires (e.g. prefers-reduced-motion)
-  setTimeout(() => { if (celebrationPending) celebrationPhaseB(); }, 500);
+  waitForPanelCollapse();
 }
 
 /* ─── Show celebration title card ─── */
@@ -1055,24 +1054,14 @@ function dismissCelebration() {
   // Restore lights to defaults
   applyLitState(LIGHTS_DEFAULT);
 
-  // Restore orbit to front view (stale aspect is fine here; overlay is hiding)
-  orbitTheta  = 0;
-  orbitPhi    = Math.PI / 2.2;
-  orbitRadius = savedRadius;
-  orbitTarget.copy(savedTarget);
-  applyOrbit();
-
-  // Set celebrationActive = false BEFORE restoring panel so the
-  // transitionend listener knows this is a dismiss re-expand
   celebrationActive = false;
 
-  // Restore UI — panelLeft re-expand triggers resize via transitionend
+  // Restore UI — waitForPanelExpand will resize once panel is back to 300px
   panelLeft.classList.remove('hidden');
   viewerInfo.classList.remove('hidden');
   hintRow.classList.remove('hidden');
 
-  // Safety fallback: if transitionend never fires
-  setTimeout(() => { if (!autoRotate) dismissResizeComplete(); }, 500);
+  waitForPanelExpand();
 }
 
 /* ─── Dismiss on click/tap ─── */
