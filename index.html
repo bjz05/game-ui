@@ -380,7 +380,7 @@
     background: rgba(0,0,0,1);
   }
   .celebration-overlay.finale {
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.3);
   }
 
   .celebration-video {
@@ -926,20 +926,20 @@ celebVideo.addEventListener('ended', () => {
       autoFrame(current);
 
       // Shift camera to show model on left side (text is on right)
-      // Positive theta moves camera clockwise (model appears left)
-      orbitTheta = Math.PI / 6;  // 30° - model shifted left
+      // Negative theta moves camera counter-clockwise (model appears left)
+      orbitTheta = -Math.PI / 5;  // -36° - model shifted left
       orbitPhi = Math.PI / 2.2;
 
-      // Zoom in closer for dramatic effect (reduce radius by 30%)
-      orbitRadius *= 0.7;
+      // Zoom in closer for dramatic effect (reduce radius by 20%)
+      orbitRadius *= 0.8;
 
       applyOrbit();
 
-      // Restore bright cinematic lighting to showcase the model
-      keyLight.intensity = 2.5;
-      fillLight.intensity = 1.2;
-      rimLight.intensity = 1.8;
-      ambientLight.intensity = 0.6;
+      // Restore VERY bright cinematic lighting to showcase the model
+      keyLight.intensity = 3.5;
+      fillLight.intensity = 1.8;
+      rimLight.intensity = 2.5;
+      ambientLight.intensity = 0.9;
 
       // Dim overlay to show model behind, then show finale text
       celebOverlay.classList.add('finale');
@@ -992,7 +992,13 @@ function dismissCelebration() {
       // Completely reset camera to default centered position
       autoFrame(current);  // This sets orbitRadius, orbitTarget, orbitTheta=0, orbitPhi
       applyOrbit();
-      autoRotate = true;
+
+      // Brief delay before starting auto-rotate so user sees centered view
+      setTimeout(() => {
+        if (!celebrationActive && !isDragging) {
+          autoRotate = true;
+        }
+      }, 800);
     }
   };
   checkPanelExpand();
