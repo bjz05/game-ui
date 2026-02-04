@@ -1,5 +1,5 @@
 *.fbx
-*.mp4
 tex_preview/
 .DS_Store
 .claude/
+GameUI_*.mp4

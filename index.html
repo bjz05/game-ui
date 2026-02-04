@@ -366,84 +366,35 @@
   /* ─── Celebration Overlay ─── */
   .celebration-overlay {
     position: fixed; inset: 0; z-index: 200;
-    background: rgba(10,10,14,0.75);
+    background: rgba(10,10,14,0);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.5s cubic-bezier(.4,0,.2,1);
+    transition: background 0.5s cubic-bezier(.4,0,.2,1), opacity 0.5s cubic-bezier(.4,0,.2,1);
   }
   .celebration-overlay.show {
     opacity: 1;
     pointer-events: auto;
+    background: rgba(10,10,14,0.85);
+  }
+  .celebration-overlay.fade-to-black {
+    background: rgba(0,0,0,1);
   }
 
-  .celebration-name {
-    font-size: 56px;
-    font-weight: 700;
-    letter-spacing: 6px;
-    text-transform: uppercase;
-    color: #fff;
-    text-shadow: 0 0 40px rgba(74,158,255,0.4), 0 2px 8px rgba(0,0,0,0.5);
-    display: flex;
-    overflow: hidden;
-  }
-  .celebration-name .letter {
-    display: inline-block;
+  .celebration-video {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     opacity: 0;
-    transform: translateY(28px);
-    animation: celebLetter 0.5s cubic-bezier(.4,0,.2,1) forwards;
+    transform: scale(0.95);
+    transition: opacity 0.6s cubic-bezier(.4,0,.2,1), transform 0.6s cubic-bezier(.4,0,.2,1);
   }
-  @keyframes celebLetter {
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .celebration-role {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.5);
-    margin-top: 10px;
-    opacity: 0;
-    animation: celebFadeIn 0.4s 0.05s cubic-bezier(.4,0,.2,1) forwards;
-  }
-
-  .celebration-line {
-    width: 48px;
-    height: 1px;
-    background: rgba(74,158,255,0.6);
-    margin-top: 18px;
-    opacity: 0;
-    animation: celebFadeIn 0.4s 0.3s cubic-bezier(.4,0,.2,1) forwards;
-  }
-
-  .celebration-label {
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 5px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.35);
-    margin-top: 10px;
-    opacity: 0;
-    animation: celebFadeIn 0.4s 0.5s cubic-bezier(.4,0,.2,1) forwards;
-  }
-
-  @keyframes celebFadeIn {
-    to { opacity: 1; }
-  }
-
-  .celebration-dismiss {
-    position: absolute;
-    bottom: 60px;
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.3);
-    opacity: 0;
-    animation: celebFadeIn 0.4s 1.2s cubic-bezier(.4,0,.2,1) forwards;
+  .celebration-video.show {
+    opacity: 1;
+    transform: scale(1);
   }
 </style>
 <script type="importmap">
@@ -460,11 +411,9 @@
 <div class="flash-overlay" id="flash"></div>
 
 <div class="celebration-overlay" id="celebOverlay">
-  <div class="celebration-name" id="celebName"></div>
-  <div class="celebration-role" id="celebRole"></div>
-  <div class="celebration-line"></div>
-  <div class="celebration-label">Selected</div>
-  <div class="celebration-dismiss">Click anywhere to continue</div>
+  <video class="celebration-video" id="celebVideo" preload="auto">
+    <source src="Knight.mp4" type="video/mp4">
+  </video>
 </div>
 
 <div class="layout">
@@ -580,8 +529,7 @@ const viewerInfo    = document.getElementById('viewerInfo');
 const hintRow       = document.getElementById('hintRow');
 const dragHint      = document.getElementById('dragHint');
 const celebOverlay  = document.getElementById('celebOverlay');
-const celebName     = document.getElementById('celebName');
-const celebRole     = document.getElementById('celebRole');
+const celebVideo    = document.getElementById('celebVideo');
 
 /* ─── Build portrait cards ─── */
 characters.forEach((ch, i) => {
@@ -626,7 +574,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 
-// Studio lighting — store references for celebration animation
+// Studio lighting
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
 keyLight.position.set(2, 4, 3);
 scene.add(keyLight);
@@ -641,14 +589,6 @@ scene.add(rimLight);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
-
-// Original light state (for restoration after celebration)
-const LIGHTS_DEFAULT = {
-  key:     { intensity: 1.6, pos: new THREE.Vector3(2, 4, 3), color: new THREE.Color(0xffffff) },
-  fill:    { intensity: 0.8, pos: new THREE.Vector3(-3, 2, 1), color: new THREE.Color(0xffffff) },
-  rim:     { intensity: 0.4, pos: new THREE.Vector3(0, 1, -3), color: new THREE.Color(0xffffff) },
-  ambient: { intensity: 0.6 }
-};
 
 // Camera
 const panelEl = canvas.parentElement;
@@ -860,203 +800,73 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('selectBtn').addEventListener('click', selectCharacter);
 
 /* ─── Celebration state ─── */
-let celebrationActive  = false;
-let celebrationPending = false;
-let celebrationStart   = 0;
+let celebrationActive = false;
 
-// Saved pre-celebration orbit state
-let savedTheta, savedPhi, savedRadius, savedTarget;
-
-// Wait for panel to fully collapse, then kick off the flyby
-function waitForPanelCollapse() {
-  if (panelLeft.clientWidth > 0) {
-    requestAnimationFrame(waitForPanelCollapse);
-    return;
-  }
-  celebrationPending = false;
-  resizeRenderer();
-  autoFrame(current);
-  applyOrbit();
-  savedTheta  = orbitTheta;
-  savedPhi    = orbitPhi;
-  savedRadius = orbitRadius;
-  savedTarget = orbitTarget.clone();
-  initCelebrationKeyframes();
-  celebrationStart = performance.now();
-}
-
-// Wait for panel to fully re-expand after dismiss
-function waitForPanelExpand() {
-  if (panelLeft.clientWidth < 300) {
-    requestAnimationFrame(waitForPanelExpand);
-    return;
-  }
-  resizeRenderer();
-  autoFrame(current);
-  applyOrbit();
-  autoRotate = true;
-}
-
-// Easing function
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2; }
-
-// Lerp helpers
-function lerp(a, b, t) { return a + (b - a) * t; }
-function lerpColor(a, b, t) {
-  return new THREE.Color(
-    lerp(a.r, b.r, t),
-    lerp(a.g, b.g, t),
-    lerp(a.b, b.b, t)
-  );
-}
-function lerpVec3(a, b, t, out) {
-  out.set(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.z, b.z, t));
-  return out;
-}
-
-/* ─── Cinematic celebration timeline ─── */
-// Shot 1: 0.30 – 0.90s  — low sweep out (epic rising angle)
-// Shot 2: 0.90 – 1.60s  — whip orbit to back/side silhouette
-// Shot 3: 1.60 – 2.40s  — rocket zoom into face close-up
-// Shot 4: 2.40 – 3.20s  — pull back reveal full body, low heroic angle
-// Shot 5: 3.20 – 3.80s  — ease into confident 3/4 front settle
-// Lights lerp smoothly from default studio → cinematic over the flyby
-// Title card: 3.80s+
-// Auto-dismiss: 6.0s
-
-const T_FLY_START   = 0.30;
-const T_S1          = 0.90;   // shot 1 → 2
-const T_S2          = 1.60;   // shot 2 → 3
-const T_S3          = 2.40;   // shot 3 → 4
-const T_S4          = 3.20;   // shot 4 → 5
-const T_FLY_END     = 3.80;   // shot 5 end
-const T_TITLE_START = 3.80;
-const T_AUTO_DISMISS= 6.00;
-
-/* ─── Cinematic light target (celebration end state) ─── */
-const LIT_CINEMATIC = {
-  key:     { intensity: 2.8, color: new THREE.Color(0xffffff) },
-  fill:    { intensity: 0.6, color: new THREE.Color(0x6688cc) },  // cool blue
-  rim:     { intensity: 1.2, color: new THREE.Color(0xffaa44) },  // warm orange rim
-  ambient: { intensity: 0.3 }
-};
-
-/* ─── Per-shot end states (filled dynamically) ─── */
-const SHOT1_END = { radius: 0, theta: 0, phi: 0, target: null };
-const SHOT2_END = { radius: 0, theta: 0, phi: 0, target: null };
-const SHOT3_END = { radius: 0, theta: 0, phi: 0, target: null };
-const SHOT4_END = { radius: 0, theta: 0, phi: 0, target: null };
-const SHOT5_END = { radius: 0, theta: 0, phi: 0, target: null };
-
-function initCelebrationKeyframes() {
-  const bb = characters[current].bb;
-  const size = new THREE.Vector3(
-    bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]
-  );
-  const center = new THREE.Vector3(
-    (bb.min[0] + bb.max[0]) / 2, (bb.min[1] + bb.max[1]) / 2, (bb.min[2] + bb.max[2]) / 2
-  );
-  const bodyTarget  = new THREE.Vector3(center.x, center.y - size.y * 0.06, center.z);
-  const headTarget  = new THREE.Vector3(center.x, center.y + size.y * 0.28, center.z);
-  const chestTarget = new THREE.Vector3(center.x, center.y + size.y * 0.10, center.z);
-
-  // Shot 1: sweep out to a low wide angle — camera drops and pulls back
-  SHOT1_END.radius = savedRadius * 1.6;
-  SHOT1_END.theta  = savedTheta - Math.PI * 0.25; // swing left
-  SHOT1_END.phi    = Math.PI * 0.62;              // low camera looking up
-  SHOT1_END.target = bodyTarget.clone();
-
-  // Shot 2: whip around to back/side — big theta sweep, slight pull in
-  SHOT2_END.radius = savedRadius * 1.2;
-  SHOT2_END.theta  = SHOT1_END.theta + Math.PI * 0.7; // big swing around (126°)
-  SHOT2_END.phi    = Math.PI * 0.48;                   // slightly above horizon
-  SHOT2_END.target = chestTarget.clone();
-
-  // Shot 3: rocket zoom tight on face — small radius, target up high
-  SHOT3_END.radius = savedRadius * 0.38;
-  SHOT3_END.theta  = SHOT2_END.theta + Math.PI * 0.15; // continue orbit slightly
-  SHOT3_END.phi    = Math.PI * 0.44;                    // slightly above eye level
-  SHOT3_END.target = headTarget.clone();
-
-  // Shot 4: dramatic pull back — zoom out while staying low, reveal full body
-  SHOT4_END.radius = savedRadius * 1.4;
-  SHOT4_END.theta  = SHOT3_END.theta - Math.PI * 0.3; // swing back toward front
-  SHOT4_END.phi    = Math.PI * 0.58;                   // low heroic angle
-  SHOT4_END.target = bodyTarget.clone();
-
-  // Shot 5: settle into confident 3/4 front pose
-  SHOT5_END.radius = savedRadius * 1.0;
-  SHOT5_END.theta  = savedTheta + Math.PI * 0.18; // slight 3/4 offset from front
-  SHOT5_END.phi    = Math.PI / 2.2;               // normal eye-level
-  SHOT5_END.target = bodyTarget.clone();
-}
-
-/* ─── Select → kick off celebration ─── */
+/* ─── Select → kick off video celebration ─── */
 function selectCharacter() {
   if (celebrationActive) return;
-  celebrationActive  = true;
-  celebrationPending = true;
-  autoRotate  = false;
-  isDragging  = false;
+  celebrationActive = true;
+  autoRotate = false;
+  isDragging = false;
 
   // Flash
   flash.classList.add('show');
   setTimeout(() => flash.classList.remove('show'), 300);
 
-  // Hide UI — waitForPanelCollapse polls clientWidth until 0, then starts flyby
+  // Hide UI
   panelLeft.classList.add('hidden');
   viewerInfo.classList.add('hidden');
   hintRow.classList.add('hidden');
   dragHint.classList.add('hidden');
 
-  waitForPanelCollapse();
+  // Show dimmed overlay and video after a short delay
+  setTimeout(() => {
+    celebOverlay.classList.add('show');
+    setTimeout(() => {
+      celebVideo.classList.add('show');
+      celebVideo.currentTime = 0;
+      celebVideo.play();
+    }, 500);
+  }, 300);
 }
 
-/* ─── Show celebration title card ─── */
-let titleShown = false;
-
-function showTitleCard(ch) {
-  if (titleShown) return;
-  titleShown = true;
-
-  // Build letter spans with staggered delays
-  celebName.innerHTML = '';
-  const letters = ch.name.split('');
-  letters.forEach((letter, i) => {
-    const span = document.createElement('span');
-    span.className = 'letter';
-    span.textContent = letter === ' ' ? '\u00A0' : letter;
-    span.style.animationDelay = (i * 0.045) + 's';
-    celebName.appendChild(span);
-  });
-
-  // Set role — its animation delay is set relative to name completion
-  celebRole.textContent = ch.role;
-  const nameEndDelay = letters.length * 0.045;
-  celebRole.style.animationDelay = nameEndDelay + 's';
-
-  // Show overlay
-  celebOverlay.classList.add('show');
-}
+// When video ends, fade to black then dismiss
+celebVideo.addEventListener('ended', () => {
+  celebOverlay.classList.add('fade-to-black');
+  setTimeout(() => {
+    dismissCelebration();
+  }, 800);
+});
 
 /* ─── Dismiss celebration ─── */
 function dismissCelebration() {
-  celebOverlay.classList.remove('show');
-  titleShown = false;
-
-  // Restore lights to defaults
-  applyLitState(LIGHTS_DEFAULT);
-
+  celebVideo.pause();
+  celebVideo.currentTime = 0;
+  celebVideo.classList.remove('show');
+  celebOverlay.classList.remove('show', 'fade-to-black');
+  
   celebrationActive = false;
 
-  // Restore UI — waitForPanelExpand will resize once panel is back to 300px
+  // Restore UI
   panelLeft.classList.remove('hidden');
   viewerInfo.classList.remove('hidden');
   hintRow.classList.remove('hidden');
 
-  waitForPanelExpand();
+  // Wait for panel to re-expand, then restore auto-rotate
+  const checkPanelExpand = () => {
+    if (panelLeft.clientWidth < 300) {
+      requestAnimationFrame(checkPanelExpand);
+    } else {
+      resizeRenderer();
+      autoFrame(current);
+      applyOrbit();
+      autoRotate = true;
+    }
+  };
+  checkPanelExpand();
 }
+
+
 
 /* ─── Dismiss on click/tap ─── */
 celebOverlay.addEventListener('click', dismissCelebration);
@@ -1066,90 +876,17 @@ celebOverlay.addEventListener('touchend', (e) => { e.preventDefault(); dismissCe
 const ROTATE_SPEED = 0.5;
 let lastTime = performance.now();
 
-// Helper: apply a lighting state object to the scene lights
-function applyLitState(state) {
-  keyLight.intensity = state.key.intensity;
-  keyLight.color.copy(state.key.color);
-  fillLight.intensity = state.fill.intensity;
-  fillLight.color.copy(state.fill.color);
-  rimLight.intensity = state.rim.intensity;
-  rimLight.color.copy(state.rim.color);
-  ambientLight.intensity = state.ambient.intensity;
-}
-
-// Helper: lerp between two LIT_* states at parameter t, write result to scene lights
-function lerpLitState(a, b, t) {
-  keyLight.intensity  = lerp(a.key.intensity,  b.key.intensity,  t);
-  keyLight.color.copy(lerpColor(a.key.color,   b.key.color,   t));
-  fillLight.intensity = lerp(a.fill.intensity, b.fill.intensity, t);
-  fillLight.color.copy(lerpColor(a.fill.color, b.fill.color, t));
-  rimLight.intensity  = lerp(a.rim.intensity,  b.rim.intensity,  t);
-  rimLight.color.copy(lerpColor(a.rim.color,   b.rim.color,   t));
-  ambientLight.intensity = lerp(a.ambient.intensity, b.ambient.intensity, t);
-}
-
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
   const dt  = (now - lastTime) / 1000;
   lastTime  = now;
 
-  if (celebrationPending) {
-    // Panel is collapsing — keep renderer synced to the growing canvas
-    // container so the model stays visually centered throughout
-    resizeRenderer();
-    autoFrame(current);
-    applyOrbit();
-  } else if (celebrationActive) {
-    const elapsed = (now - celebrationStart) / 1000; // seconds
-
-    // ── Camera flyby + cinematic lighting ──
-    if (elapsed >= T_FLY_START && elapsed < T_FLY_END) {
-
-      // Smooth light transition over the entire flyby (default → cinematic)
-      const lightT = easeInOutCubic(Math.min((elapsed - T_FLY_START) / (T_FLY_END - T_FLY_START), 1));
-      lerpLitState(LIGHTS_DEFAULT, LIT_CINEMATIC, lightT);
-
-      // ── Camera keyframes (5 shots) ──
-      let camStart, camEnd, tStart, tEnd, easing;
-      if (elapsed < T_S1) {
-        camStart = { radius: savedRadius, theta: savedTheta, phi: savedPhi, target: savedTarget };
-        camEnd   = SHOT1_END;  tStart = T_FLY_START; tEnd = T_S1;  easing = easeOutCubic;
-      } else if (elapsed < T_S2) {
-        camStart = SHOT1_END;  camEnd = SHOT2_END;   tStart = T_S1; tEnd = T_S2;  easing = easeInOutCubic;
-      } else if (elapsed < T_S3) {
-        camStart = SHOT2_END;  camEnd = SHOT3_END;   tStart = T_S2; tEnd = T_S3;  easing = easeInOutCubic;
-      } else if (elapsed < T_S4) {
-        camStart = SHOT3_END;  camEnd = SHOT4_END;   tStart = T_S3; tEnd = T_S4;  easing = easeInOutCubic;
-      } else {
-        camStart = SHOT4_END;  camEnd = SHOT5_END;   tStart = T_S4; tEnd = T_FLY_END; easing = easeInOutCubic;
-      }
-      const t = easing(Math.min((elapsed - tStart) / (tEnd - tStart), 1));
-      orbitRadius = lerp(camStart.radius, camEnd.radius, t);
-      orbitTheta  = lerp(camStart.theta,  camEnd.theta,  t);
-      orbitPhi    = lerp(camStart.phi,    camEnd.phi,    t);
-      lerpVec3(camStart.target, camEnd.target, t, orbitTarget);
-
-      applyOrbit();
-    }
-
-    // ── Phase 4: Title card (2.80s+) ──
-    if (elapsed >= T_TITLE_START) {
-      showTitleCard(characters[current]);
-    }
-
-    // ── Phase 5: Auto dismiss ──
-    if (elapsed >= T_AUTO_DISMISS) {
-      dismissCelebration();
-    }
-
-  } else {
-    // Normal mode: auto-rotate
-    if (autoRotate) {
-      orbitTheta -= ROTATE_SPEED * dt;
-    }
-    applyOrbit();
+  // Normal mode: auto-rotate (celebration doesn't need camera animation)
+  if (!celebrationActive && autoRotate) {
+    orbitTheta -= ROTATE_SPEED * dt;
   }
+  applyOrbit();
 
   renderer.render(scene, camera);
 }
