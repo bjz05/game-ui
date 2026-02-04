@@ -384,12 +384,12 @@
   }
 
   .celebration-video {
-    width: 85vw;
-    height: 85vh;
+    width: 95vw;
+    height: 95vh;
     object-fit: contain;
     opacity: 0;
-    transform: scale(0.98);
-    transition: opacity 0.6s cubic-bezier(.4,0,.2,1), transform 0.6s cubic-bezier(.4,0,.2,1);
+    transform: scale(0.92);
+    transition: opacity 1s cubic-bezier(.4,0,.2,1), transform 1s cubic-bezier(.4,0,.2,1);
   }
   .celebration-video.show {
     opacity: 1;
@@ -398,49 +398,51 @@
 
   .celebration-finale {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) translateY(20px);
+    bottom: 60px;
+    right: 80px;
     z-index: 250;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-end;
     opacity: 0;
+    transform: translateX(30px);
     pointer-events: none;
-    transition: opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1);
+    transition: opacity 1s cubic-bezier(.4,0,.2,1), transform 1s cubic-bezier(.4,0,.2,1);
   }
   .celebration-finale.show {
     opacity: 1;
-    transform: translate(-50%, -50%) translateY(0);
-  }
-  .celebration-finale .char-name {
-    font-size: 48px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #fff;
-    text-shadow: 0 0 30px rgba(74,158,255,0.6), 0 2px 8px rgba(0,0,0,0.5);
-  }
-  .celebration-finale .char-role {
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.6);
-    margin-top: 8px;
-  }
-  .celebration-finale .char-line {
-    width: 60px;
-    height: 1px;
-    background: rgba(74,158,255,0.6);
-    margin: 20px 0;
+    transform: translateX(0);
   }
   .celebration-finale .char-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 4px;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 8px;
+  }
+  .celebration-finale .char-line {
+    width: 80px;
+    height: 1px;
+    background: rgba(74,158,255,0.5);
+    margin-bottom: 12px;
+  }
+  .celebration-finale .char-role {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 4px;
+  }
+  .celebration-finale .char-name {
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 0 40px rgba(74,158,255,0.7), 0 2px 12px rgba(0,0,0,0.6);
+    line-height: 1;
   }
 </style>
 <script type="importmap">
@@ -461,10 +463,10 @@
     <source src="Knight.mp4" type="video/mp4">
   </video>
   <div class="celebration-finale" id="celebFinale">
-    <div class="char-name" id="finaleCharName"></div>
-    <div class="char-role" id="finaleCharRole"></div>
-    <div class="char-line"></div>
     <div class="char-label">SELECTED</div>
+    <div class="char-line"></div>
+    <div class="char-role" id="finaleCharRole"></div>
+    <div class="char-name" id="finaleCharName"></div>
   </div>
 </div>
 
@@ -881,15 +883,25 @@ function selectCharacter() {
   // Dim the screen to black
   celebOverlay.classList.add('show');
 
-  // Load and wait for video to be ready
+  // Dim the scene lights for cinematic effect (stage going dark)
+  keyLight.intensity = 0.3;
+  fillLight.intensity = 0.2;
+  rimLight.intensity = 0.1;
+  ambientLight.intensity = 0.15;
+
+  // Load video in background
   celebVideo.src = videoPath;
   celebVideo.load();
 
+  // Wait 1.5 seconds (black screen for anticipation), then show video
   const onVideoReady = () => {
     celebVideo.removeEventListener('canplaythrough', onVideoReady);
-    celebVideo.classList.add('show');
-    celebVideo.currentTime = 0;
-    celebVideo.play();
+
+    setTimeout(() => {
+      celebVideo.classList.add('show');
+      celebVideo.currentTime = 0;
+      celebVideo.play();
+    }, 1500); // 1.5 second dramatic pause
   };
 
   celebVideo.addEventListener('canplaythrough', onVideoReady, { once: true });
@@ -909,8 +921,19 @@ celebVideo.addEventListener('ended', () => {
     } else {
       // Panel fully collapsed — resize and center model
       resizeRenderer();
+
+      // Reset to front view (center the model)
+      orbitTheta = 0;
+      orbitPhi = Math.PI / 2;
+
       autoFrame(current);
       applyOrbit();
+
+      // Restore bright cinematic lighting to showcase the model
+      keyLight.intensity = 2.0;
+      fillLight.intensity = 1.0;
+      rimLight.intensity = 1.5;
+      ambientLight.intensity = 0.5;
 
       // Dim overlay to show model behind, then show finale text
       celebOverlay.classList.add('finale');
@@ -941,6 +964,12 @@ function dismissCelebration() {
 
   celebrationActive = false;
 
+  // Restore normal lighting
+  keyLight.intensity = 1.2;
+  fillLight.intensity = 0.6;
+  rimLight.intensity = 0.8;
+  ambientLight.intensity = 0.3;
+
   // Restore UI
   panelLeft.classList.remove('hidden');
   viewerInfo.classList.remove('hidden');
@@ -952,6 +981,10 @@ function dismissCelebration() {
       requestAnimationFrame(checkPanelExpand);
     } else {
       // Panel fully expanded — resize and re-center model to panel-present layout
+      // Reset to front view
+      orbitTheta = 0;
+      orbitPhi = Math.PI / 2;
+
       resizeRenderer();
       autoFrame(current);
       applyOrbit();
