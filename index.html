@@ -377,15 +377,13 @@
   .celebration-overlay.show {
     opacity: 1;
     pointer-events: auto;
-    background: rgba(10,10,14,0.85);
-  }
-  .celebration-overlay.fade-to-black {
     background: rgba(0,0,0,1);
   }
 
   .celebration-video {
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 85vw;
+    height: 85vh;
+    object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     opacity: 0;
@@ -395,6 +393,48 @@
   .celebration-video.show {
     opacity: 1;
     transform: scale(1);
+  }
+
+  .celebration-finale {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1);
+  }
+  .celebration-finale.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .celebration-finale .char-name {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 0 30px rgba(74,158,255,0.6), 0 2px 8px rgba(0,0,0,0.5);
+  }
+  .celebration-finale .char-role {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    margin-top: 8px;
+  }
+  .celebration-finale .char-line {
+    width: 60px;
+    height: 1px;
+    background: rgba(74,158,255,0.6);
+    margin: 20px 0;
+  }
+  .celebration-finale .char-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
   }
 </style>
 <script type="importmap">
@@ -414,6 +454,12 @@
   <video class="celebration-video" id="celebVideo" preload="auto">
     <source src="Knight.mp4" type="video/mp4">
   </video>
+  <div class="celebration-finale" id="celebFinale">
+    <div class="char-name" id="finaleCharName"></div>
+    <div class="char-role" id="finaleCharRole"></div>
+    <div class="char-line"></div>
+    <div class="char-label">SELECTED</div>
+  </div>
 </div>
 
 <div class="layout">
@@ -528,8 +574,11 @@ const panelLeft     = document.getElementById('panelLeft');
 const viewerInfo    = document.getElementById('viewerInfo');
 const hintRow       = document.getElementById('hintRow');
 const dragHint      = document.getElementById('dragHint');
-const celebOverlay  = document.getElementById('celebOverlay');
-const celebVideo    = document.getElementById('celebVideo');
+const celebOverlay    = document.getElementById('celebOverlay');
+const celebVideo      = document.getElementById('celebVideo');
+const celebFinale     = document.getElementById('celebFinale');
+const finaleCharName  = document.getElementById('finaleCharName');
+const finaleCharRole  = document.getElementById('finaleCharRole');
 
 /* ─── Build portrait cards ─── */
 characters.forEach((ch, i) => {
@@ -801,41 +850,70 @@ document.getElementById('selectBtn').addEventListener('click', selectCharacter);
 
 /* ─── Celebration state ─── */
 let celebrationActive = false;
+const CHAR_VIDEOS = ['Knight.mp4', null, null]; // Only Knight has video for now
 
-/* ─── Select → kick off video celebration ─── */
+/* ─── Select → kick off celebration ─── */
 function selectCharacter() {
   if (celebrationActive) return;
+
+  const videoPath = CHAR_VIDEOS[current];
+  if (!videoPath) {
+    // No video for this character yet — skip celebration
+    console.log(`No video for ${characters[current].name} yet`);
+    return;
+  }
+
   celebrationActive = true;
   autoRotate = false;
   isDragging = false;
 
-  // Flash
-  flash.classList.add('show');
-  setTimeout(() => flash.classList.remove('show'), 300);
-
-  // Hide UI
-  panelLeft.classList.add('hidden');
+  // Hide UI but keep the 3D model visible
   viewerInfo.classList.add('hidden');
   hintRow.classList.add('hidden');
   dragHint.classList.add('hidden');
 
-  // Show dimmed overlay and video after a short delay
+  // Dim the screen
+  celebOverlay.classList.add('show');
+
+  // Play video after a short delay
   setTimeout(() => {
-    celebOverlay.classList.add('show');
-    setTimeout(() => {
-      celebVideo.classList.add('show');
-      celebVideo.currentTime = 0;
-      celebVideo.play();
-    }, 500);
-  }, 300);
+    celebVideo.src = videoPath;
+    celebVideo.classList.add('show');
+    celebVideo.currentTime = 0;
+    celebVideo.play();
+  }, 500);
 }
 
-// When video ends, fade to black then dismiss
+// When video ends, hide video and show finale celebration screen
 celebVideo.addEventListener('ended', () => {
-  celebOverlay.classList.add('fade-to-black');
+  celebVideo.classList.remove('show');
+
   setTimeout(() => {
-    dismissCelebration();
-  }, 800);
+    // Show finale screen with character info
+    finaleCharName.textContent = characters[current].name;
+    finaleCharRole.textContent = characters[current].role;
+    celebFinale.classList.add('show');
+
+    // Hide panel and center the 3D model
+    panelLeft.classList.add('hidden');
+
+    // Wait for panel to collapse, then resize and center
+    const waitForCollapse = () => {
+      if (panelLeft.clientWidth > 0) {
+        requestAnimationFrame(waitForCollapse);
+      } else {
+        resizeRenderer();
+        autoFrame(current);
+        applyOrbit();
+      }
+    };
+    waitForCollapse();
+
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+      dismissCelebration();
+    }, 3000);
+  }, 300);
 });
 
 /* ─── Dismiss celebration ─── */
@@ -843,8 +921,9 @@ function dismissCelebration() {
   celebVideo.pause();
   celebVideo.currentTime = 0;
   celebVideo.classList.remove('show');
-  celebOverlay.classList.remove('show', 'fade-to-black');
-  
+  celebFinale.classList.remove('show');
+  celebOverlay.classList.remove('show');
+
   celebrationActive = false;
 
   // Restore UI
