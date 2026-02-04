@@ -919,21 +919,27 @@ celebVideo.addEventListener('ended', () => {
     if (panelLeft.clientWidth > 0) {
       requestAnimationFrame(waitForCollapse);
     } else {
-      // Panel fully collapsed — resize and center model
+      // Panel fully collapsed — resize canvas to full width
       resizeRenderer();
 
-      // Reset to front view (center the model)
-      orbitTheta = 0;
-      orbitPhi = Math.PI / 2;
-
+      // Position model left-aligned and zoomed for dramatic finale shot
       autoFrame(current);
+
+      // Shift camera to show model on left side (text is on right)
+      // Positive theta moves camera clockwise (model appears left)
+      orbitTheta = Math.PI / 6;  // 30° - model shifted left
+      orbitPhi = Math.PI / 2.2;
+
+      // Zoom in closer for dramatic effect (reduce radius by 30%)
+      orbitRadius *= 0.7;
+
       applyOrbit();
 
       // Restore bright cinematic lighting to showcase the model
-      keyLight.intensity = 2.0;
-      fillLight.intensity = 1.0;
-      rimLight.intensity = 1.5;
-      ambientLight.intensity = 0.5;
+      keyLight.intensity = 2.5;
+      fillLight.intensity = 1.2;
+      rimLight.intensity = 1.8;
+      ambientLight.intensity = 0.6;
 
       // Dim overlay to show model behind, then show finale text
       celebOverlay.classList.add('finale');
@@ -980,13 +986,11 @@ function dismissCelebration() {
     if (panelLeft.clientWidth < 300) {
       requestAnimationFrame(checkPanelExpand);
     } else {
-      // Panel fully expanded — resize and re-center model to panel-present layout
-      // Reset to front view
-      orbitTheta = 0;
-      orbitPhi = Math.PI / 2;
-
+      // Panel fully expanded — resize canvas back to narrow view
       resizeRenderer();
-      autoFrame(current);
+
+      // Completely reset camera to default centered position
+      autoFrame(current);  // This sets orbitRadius, orbitTarget, orbitTheta=0, orbitPhi
       applyOrbit();
       autoRotate = true;
     }
