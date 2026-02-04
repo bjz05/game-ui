@@ -379,15 +379,16 @@
     pointer-events: auto;
     background: rgba(0,0,0,1);
   }
+  .celebration-overlay.finale {
+    background: rgba(0,0,0,0.6);
+  }
 
   .celebration-video {
     width: 85vw;
     height: 85vh;
     object-fit: contain;
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.98);
     transition: opacity 0.6s cubic-bezier(.4,0,.2,1), transform 0.6s cubic-bezier(.4,0,.2,1);
   }
   .celebration-video.show {
@@ -396,16 +397,21 @@
   }
 
   .celebration-finale {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translateY(20px);
+    z-index: 250;
     display: flex;
     flex-direction: column;
     align-items: center;
     opacity: 0;
-    transform: translateY(20px);
+    pointer-events: none;
     transition: opacity 0.8s cubic-bezier(.4,0,.2,1), transform 0.8s cubic-bezier(.4,0,.2,1);
   }
   .celebration-finale.show {
     opacity: 1;
-    transform: translateY(0);
+    transform: translate(-50%, -50%) translateY(0);
   }
   .celebration-finale .char-name {
     font-size: 48px;
@@ -872,57 +878,66 @@ function selectCharacter() {
   hintRow.classList.add('hidden');
   dragHint.classList.add('hidden');
 
-  // Dim the screen
+  // Dim the screen to black
   celebOverlay.classList.add('show');
 
-  // Play video after a short delay
-  setTimeout(() => {
-    celebVideo.src = videoPath;
+  // Load and wait for video to be ready
+  celebVideo.src = videoPath;
+  celebVideo.load();
+
+  const onVideoReady = () => {
+    celebVideo.removeEventListener('canplaythrough', onVideoReady);
     celebVideo.classList.add('show');
     celebVideo.currentTime = 0;
     celebVideo.play();
-  }, 500);
+  };
+
+  celebVideo.addEventListener('canplaythrough', onVideoReady, { once: true });
 }
 
 // When video ends, hide video and show finale celebration screen
 celebVideo.addEventListener('ended', () => {
   celebVideo.classList.remove('show');
 
-  setTimeout(() => {
-    // Show finale screen with character info
-    finaleCharName.textContent = characters[current].name;
-    finaleCharRole.textContent = characters[current].role;
-    celebFinale.classList.add('show');
+  // Hide panel and center the 3D model first
+  panelLeft.classList.add('hidden');
 
-    // Hide panel and center the 3D model
-    panelLeft.classList.add('hidden');
+  // Wait for panel to collapse, then show finale
+  const waitForCollapse = () => {
+    if (panelLeft.clientWidth > 0) {
+      requestAnimationFrame(waitForCollapse);
+    } else {
+      // Panel fully collapsed — resize and center model
+      resizeRenderer();
+      autoFrame(current);
+      applyOrbit();
 
-    // Wait for panel to collapse, then resize and center
-    const waitForCollapse = () => {
-      if (panelLeft.clientWidth > 0) {
-        requestAnimationFrame(waitForCollapse);
-      } else {
-        resizeRenderer();
-        autoFrame(current);
-        applyOrbit();
-      }
-    };
-    waitForCollapse();
+      // Dim overlay to show model behind, then show finale text
+      celebOverlay.classList.add('finale');
 
-    // Auto-dismiss after 3 seconds
-    setTimeout(() => {
-      dismissCelebration();
-    }, 3000);
-  }, 300);
+      setTimeout(() => {
+        finaleCharName.textContent = characters[current].name;
+        finaleCharRole.textContent = characters[current].role;
+        celebFinale.classList.add('show');
+
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+          dismissCelebration();
+        }, 3000);
+      }, 300);
+    }
+  };
+  waitForCollapse();
 });
 
 /* ─── Dismiss celebration ─── */
 function dismissCelebration() {
   celebVideo.pause();
   celebVideo.currentTime = 0;
+  celebVideo.src = ''; // Clear source
   celebVideo.classList.remove('show');
   celebFinale.classList.remove('show');
-  celebOverlay.classList.remove('show');
+  celebOverlay.classList.remove('show', 'finale');
 
   celebrationActive = false;
 
@@ -931,11 +946,12 @@ function dismissCelebration() {
   viewerInfo.classList.remove('hidden');
   hintRow.classList.remove('hidden');
 
-  // Wait for panel to re-expand, then restore auto-rotate
+  // Wait for panel to re-expand, then restore auto-rotate and re-center model
   const checkPanelExpand = () => {
     if (panelLeft.clientWidth < 300) {
       requestAnimationFrame(checkPanelExpand);
     } else {
+      // Panel fully expanded — resize and re-center model to panel-present layout
       resizeRenderer();
       autoFrame(current);
       applyOrbit();
