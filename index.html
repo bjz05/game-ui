@@ -697,7 +697,7 @@ function autoFrame(idx) {
   const hHalf  = effectiveWidth / (2 * aspect);
   const dominantHalf = Math.max(vHalf, hHalf);
 
-  orbitRadius = dominantHalf / Math.tan(fov / 2) * 1.6;
+  orbitRadius = dominantHalf / Math.tan(fov / 2) * 1.28;  // 1.6 * 0.8 = larger size user prefers
   orbitTarget.set(center.x, center.y - size.y * 0.06, center.z);
   orbitTheta  = 0;  // front view (camera at +Z)
   orbitPhi    = Math.PI / 2.2;
@@ -930,8 +930,7 @@ celebVideo.addEventListener('ended', () => {
       orbitTheta = -Math.PI / 5;  // -36° - model shifted left
       orbitPhi = Math.PI / 2.2;
 
-      // Zoom in closer for dramatic effect (reduce radius by 20%)
-      orbitRadius *= 0.8;
+      // No zoom needed - base size is now larger (1.28 multiplier)
 
       applyOrbit();
 
@@ -970,11 +969,11 @@ function dismissCelebration() {
 
   celebrationActive = false;
 
-  // Restore normal lighting
-  keyLight.intensity = 1.2;
-  fillLight.intensity = 0.6;
-  rimLight.intensity = 0.8;
-  ambientLight.intensity = 0.3;
+  // Restore normal lighting (match initial values)
+  keyLight.intensity = 1.6;
+  fillLight.intensity = 0.8;
+  rimLight.intensity = 0.4;
+  ambientLight.intensity = 0.6;
 
   // Restore UI
   panelLeft.classList.remove('hidden');
@@ -983,7 +982,7 @@ function dismissCelebration() {
 
   // Wait for panel to re-expand, then restore auto-rotate and re-center model
   const checkPanelExpand = () => {
-    if (panelLeft.clientWidth < 300) {
+    if (panelLeft.clientWidth < 280) {
       requestAnimationFrame(checkPanelExpand);
     } else {
       // Panel fully expanded — resize canvas back to narrow view
@@ -993,12 +992,10 @@ function dismissCelebration() {
       autoFrame(current);  // This sets orbitRadius, orbitTarget, orbitTheta=0, orbitPhi
       applyOrbit();
 
-      // Brief delay before starting auto-rotate so user sees centered view
-      setTimeout(() => {
-        if (!celebrationActive && !isDragging) {
-          autoRotate = true;
-        }
-      }, 800);
+      // Start auto-rotate immediately (no delay)
+      if (!celebrationActive && !isDragging) {
+        autoRotate = true;
+      }
     }
   };
   checkPanelExpand();
